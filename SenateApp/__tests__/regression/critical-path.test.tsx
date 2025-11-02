@@ -6,6 +6,7 @@ import App from '../../App';
 vi.mock('../../firebaseConfig', () => ({
   default: { name: 'test-app' },
   database: {},
+  auth: {},
 }));
 
 vi.mock('firebase/database', () => ({
@@ -13,6 +14,9 @@ vi.mock('firebase/database', () => ({
   onValue: vi.fn(),
   off: vi.fn(),
   push: vi.fn(() => Promise.resolve({ key: 'test-key' })),
+  runTransaction: vi.fn(() => Promise.resolve({ committed: true, snapshot: { val: () => 0 } })),
+  get: vi.fn(() => Promise.resolve({ exists: () => false, val: () => null })),
+  set: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('emailjs-com', () => ({
@@ -21,89 +25,68 @@ vi.mock('emailjs-com', () => ({
   },
 }));
 
-/**
- * Regression Tests: Critical Path
- * 
- * Tests previously implemented features to ensure
- * they still work after new changes.
- * 
- * Run these tests:
- * - After every commit
- * - Before releases
- * - When refactoring
- */
-describe('Regression Tests - Critical Path', () => {
-  describe('Navigation Regression', () => {
-    it('should still navigate correctly after changes (REG-001)', () => {
-      // This test ensures navigation hasn't regressed
-      render(<App />);
-      
-      // Navigate through main pages
-      fireEvent.click(screen.getByText(/rooms/i));
-      expect(screen.getByRole('main')).toBeInTheDocument();
-      
-      fireEvent.click(screen.getByText(/gallery/i));
-      expect(screen.getByRole('main')).toBeInTheDocument();
-      
-      fireEvent.click(screen.getByText(/contact/i));
-      expect(screen.getByRole('main')).toBeInTheDocument();
-    });
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: vi.fn(() => vi.fn()),
+  signInWithEmailAndPassword: vi.fn(() => Promise.resolve({} as any)),
+  signOut: vi.fn(() => Promise.resolve()),
+}));
 
-    it('should maintain header and footer on all pages (REG-002)', () => {
-      const { container } = render(<App />);
-      
-      // Check header exists
-      expect(container.querySelector('header')).toBeInTheDocument();
-      
-      // Navigate and verify header still exists
-      fireEvent.click(screen.getByText(/rooms/i));
-      expect(container.querySelector('header')).toBeInTheDocument();
-      expect(container.querySelector('footer')).toBeInTheDocument();
-    });
+describe('Critical Path Tests', () => {
+  it('should navigate correctly between pages', () => {
+    render(<App />);
+    
+    // Test navigation to different pages
+    fireEvent.click(screen.getAllByRole('button', { name: /rooms/i })[0]);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getAllByRole('button', { name: /gallery/i })[0]);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getAllByRole('button', { name: /contact/i })[0]);
+    expect(screen.getByRole('main')).toBeInTheDocument();
   });
 
-  describe('Form Functionality Regression', () => {
-    it('should still validate contact form correctly (REG-003)', () => {
-      render(<App />);
-      fireEvent.click(screen.getByText(/contact/i));
-      
-      // Form should be visible
-      expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-      
-      // Required fields should exist
-      expect(screen.getByLabelText(/full name/i)).toHaveAttribute('required');
-      expect(screen.getByLabelText(/email address/i)).toHaveAttribute('required');
-    });
+  it('should always show header and footer', () => {
+    const { container } = render(<App />);
+    
+    expect(container.querySelector('header')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getAllByRole('button', { name: /rooms/i })[0]);
+    expect(container.querySelector('header')).toBeInTheDocument();
+    expect(container.querySelector('footer')).toBeInTheDocument();
   });
 
-  describe('Component Rendering Regression', () => {
-    it('should render all main sections correctly (REG-004)', () => {
-      const { container } = render(<App />);
-      
-      // Header should render
-      expect(container.querySelector('header')).toBeInTheDocument();
-      
-      // Main content should render
-      expect(screen.getByRole('main')).toBeInTheDocument();
-      
-      // Footer should render
-      expect(container.querySelector('footer')).toBeInTheDocument();
-    });
+  it('should validate contact form correctly', () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByRole('button', { name: /contact/i })[0]);
+    
+    // Check form fields exist
+    expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+    
+    // Check required attributes
+    expect(screen.getByLabelText(/full name/i)).toHaveAttribute('required');
+    expect(screen.getByLabelText(/email address/i)).toHaveAttribute('required');
+  });
 
-    it('should handle page state changes correctly (REG-005)', () => {
-      render(<App />);
-      
-      // Initial state
-      const initialMain = screen.getByRole('main');
-      
-      // Change page
-      fireEvent.click(screen.getByText(/gallery/i));
-      
-      // Main should still exist but content changed
-      const newMain = screen.getByRole('main');
-      expect(newMain).toBeInTheDocument();
-    });
+  it('should render all main sections', () => {
+    const { container } = render(<App />);
+    
+    expect(container.querySelector('header')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(container.querySelector('footer')).toBeInTheDocument();
+  });
+
+  it('should handle page changes correctly', () => {
+    render(<App />);
+    
+    const initialMain = screen.getByRole('main');
+    expect(initialMain).toBeInTheDocument();
+    
+    // Change page
+    fireEvent.click(screen.getAllByRole('button', { name: /gallery/i })[0]);
+    
+    const newMain = screen.getByRole('main');
+    expect(newMain).toBeInTheDocument();
   });
 });
-

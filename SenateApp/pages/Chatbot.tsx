@@ -274,7 +274,11 @@ export function Chatbot() {
                   className="flex-1"
                   disabled={isTyping}
                 />
-                <Button onClick={handleSend} disabled={!inputValue.trim() || isTyping}>
+                <Button 
+                  onClick={handleSend} 
+                  disabled={!inputValue.trim() || isTyping}
+                  aria-label="Send message"
+                >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>

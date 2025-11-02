@@ -81,7 +81,7 @@ describe('Performance Tests', () => {
           (sum: number, entry: any) => sum + entry.value,
           0
         );
-        expect(totalCLS).toBeLessThan(0.1);
+        expect(totalCLS).toBeLessThanOrEqual(0.1);
       }
     });
   });

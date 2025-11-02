@@ -9,6 +9,7 @@ import { Chatbot } from '../../pages/Chatbot';
 vi.mock('../../firebaseConfig', () => ({
   default: { name: 'test-app' },
   database: {},
+  auth: {},
 }));
 
 vi.mock('firebase/database', () => ({
@@ -16,6 +17,9 @@ vi.mock('firebase/database', () => ({
   onValue: vi.fn(),
   off: vi.fn(),
   push: vi.fn(() => Promise.resolve({ key: 'test-key' })),
+  runTransaction: vi.fn(() => Promise.resolve({ committed: true, snapshot: { val: () => 0 } })),
+  get: vi.fn(() => Promise.resolve({ exists: () => false, val: () => null })),
+  set: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('emailjs-com', () => ({
@@ -24,115 +28,76 @@ vi.mock('emailjs-com', () => ({
   },
 }));
 
-/**
- * Functional Tests: User Stories
- * 
- * Validates that the application meets functional requirements
- * as specified in user stories.
- */
-describe('User Stories Functional Tests', () => {
-  describe('US-1: Browse Rooms', () => {
-    it('should allow user to view available rooms', () => {
-      // Arrange & Act
-      render(<App />);
-      fireEvent.click(screen.getByText(/rooms/i));
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: vi.fn(() => vi.fn()),
+  signInWithEmailAndPassword: vi.fn(() => Promise.resolve({} as any)),
+  signOut: vi.fn(() => Promise.resolve()),
+}));
 
-      // Assert: Rooms page should display room information
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-    });
+describe('User Story Tests', () => {
+  it('should allow users to view rooms', () => {
+    render(<App />);
+    const roomsButton = screen.getAllByRole('button', { name: /rooms/i })[0];
+    fireEvent.click(roomsButton);
+    
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
   });
 
-  describe('US-2: Submit Booking Request', () => {
-    it('should allow user to submit a booking request with all required fields', () => {
-      // Arrange
-      render(<Contact />);
+  it('should allow users to submit booking forms', () => {
+    render(<Contact />);
+    
+    // Fill in the form
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: 'John Doe' } });
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'john@example.com' } });
+    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: '1234567890' } });
+    fireEvent.change(screen.getByLabelText(/number of guests/i), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText(/check-in date/i), { target: { value: '2025-12-01' } });
+    fireEvent.change(screen.getByLabelText(/check-out date/i), { target: { value: '2025-12-05' } });
 
-      // Act: Fill required fields
-      fireEvent.change(screen.getByLabelText(/full name/i), { 
-        target: { value: 'John Doe' } 
-      });
-      fireEvent.change(screen.getByLabelText(/email address/i), { 
-        target: { value: 'john@example.com' } 
-      });
-      fireEvent.change(screen.getByLabelText(/phone number/i), { 
-        target: { value: '1234567890' } 
-      });
-      fireEvent.change(screen.getByLabelText(/number of guests/i), { 
-        target: { value: '2' } 
-      });
-      fireEvent.change(screen.getByLabelText(/check-in date/i), { 
-        target: { value: '2025-12-01' } 
-      });
-      fireEvent.change(screen.getByLabelText(/check-out date/i), { 
-        target: { value: '2025-12-05' } 
-      });
-
-      // Assert: Form should be valid
-      const submitButton = screen.getByRole('button', { 
-        name: /send booking request/i 
-      });
-      expect(submitButton).not.toBeDisabled();
-    });
+    // Check submit button is enabled
+    const submitButton = screen.getByRole('button', { name: /send booking request/i });
+    expect(submitButton).not.toBeDisabled();
   });
 
-  describe('US-3: View Gallery', () => {
-    it('should display gallery images', () => {
-      // Arrange & Act
-      render(<Gallery />);
-
-      // Assert: Gallery should contain images
-      const images = screen.getAllByRole('img');
-      expect(images.length).toBeGreaterThan(0);
-    });
+  it('should display gallery images', () => {
+    render(<Gallery />);
+    const images = screen.getAllByRole('img');
+    expect(images.length).toBeGreaterThan(0);
   });
 
-  describe('US-4: Contact via Chatbot', () => {
-    it('should allow user to interact with chatbot', () => {
-      // Arrange
-      render(<Chatbot />);
-
-      // Assert: Chatbot interface should be visible
-      expect(screen.getByPlaceholderText(/type your question/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
-    });
-
-    it('should display quick question buttons', () => {
-      // Arrange
-      render(<Chatbot />);
-
-      // Assert: Quick questions should be available
-      expect(screen.getByText(/what are your room rates/i)).toBeInTheDocument();
-      expect(screen.getByText(/what facilities do you offer/i)).toBeInTheDocument();
-    });
+  it('should show the chatbot interface', () => {
+    render(<Chatbot />);
+    expect(screen.getByPlaceholderText(/type your question/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
   });
 
-  describe('US-5: View Reviews and Ratings', () => {
-    it('should display reviews and ratings', () => {
-      // Arrange & Act
-      render(<App />);
-      fireEvent.click(screen.getByText(/reviews/i));
-
-      // Assert: Reviews page should be visible
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-    });
+  it('should display quick question buttons in chatbot', () => {
+    render(<Chatbot />);
+    expect(screen.getByText(/what are your room rates/i)).toBeInTheDocument();
+    expect(screen.getByText(/what facilities do you offer/i)).toBeInTheDocument();
   });
 
-  describe('US-6: Navigate Between Pages', () => {
-    it('should allow seamless navigation between all pages', () => {
-      // Arrange
-      render(<App />);
+  it('should allow navigation to reviews page', () => {
+    render(<App />);
+    const reviewsButton = screen.getAllByRole('button', { name: /reviews/i })[0];
+    fireEvent.click(reviewsButton);
+    
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
+  });
 
-      const pages = ['Home', 'Rooms', 'Gallery', 'Reviews', 'Contact'];
+  it('should navigate between all pages', () => {
+    render(<App />);
 
-      // Act & Assert: Navigate to each page
-      pages.forEach(pageName => {
-        fireEvent.click(screen.getByText(new RegExp(pageName, 'i')));
-        const main = screen.getByRole('main');
-        expect(main).toBeInTheDocument();
-      });
+    const pageNames = ['Home', 'Rooms', 'Gallery', 'Reviews', 'Contact'];
+    
+    pageNames.forEach(pageName => {
+      const buttons = screen.getAllByRole('button', { name: new RegExp(pageName, 'i') });
+      if (buttons.length > 0) {
+        fireEvent.click(buttons[0]);
+        expect(screen.getByRole('main')).toBeInTheDocument();
+      }
     });
   });
 });
-

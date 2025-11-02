@@ -2,93 +2,62 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-// Mock Firebase to avoid initialization errors in tests
+// Mock Firebase
 vi.mock('./firebaseConfig', () => ({
-  default: {
-    name: 'test-app',
-  },
-  database: {}, // Mock database export for useRating hook
+  default: { name: 'test-app' },
+  database: {},
+  auth: {},
 }));
 
-// Mock Firebase database functions
 vi.mock('firebase/database', () => ({
   ref: vi.fn(),
   onValue: vi.fn(),
   off: vi.fn(),
+  runTransaction: vi.fn(() => Promise.resolve({ committed: true, snapshot: { val: () => 0 } })),
+  get: vi.fn(() => Promise.resolve({ exists: () => false, val: () => null })),
+  set: vi.fn(() => Promise.resolve()),
 }));
 
-/**
- * Test Suite for App component
- * 
- * TDD Approach:
- * 1. RED: Write tests for navigation behavior
- * 2. GREEN: Implement/review navigation logic
- * 3. REFACTOR: Optimize if needed
- */
-describe('App component', () => {
-  describe('Page rendering', () => {
-    it('should render Header component', () => {
-      // Arrange & Act
-      const { container } = render(<App />);
+vi.mock('./lib/analytics', () => ({
+  trackUserInteraction: vi.fn(() => Promise.resolve()),
+  initializeAnalytics: vi.fn(() => Promise.resolve()),
+}));
 
-      // Assert: Header should be present (check for header element)
-      const header = container.querySelector('header');
-      expect(header).toBeInTheDocument();
-    });
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: vi.fn(() => vi.fn()),
+  signInWithEmailAndPassword: vi.fn(() => Promise.resolve({} as any)),
+  signOut: vi.fn(() => Promise.resolve()),
+}));
 
-    it('should render Footer component', () => {
-      // Arrange & Act
-      const { container } = render(<App />);
-
-      // Assert: Footer should be present
-      const footer = container.querySelector('footer');
-      expect(footer).toBeInTheDocument();
-    });
+describe('App Component Tests', () => {
+  it('should render the header', () => {
+    const { container } = render(<App />);
+    const header = container.querySelector('header');
+    expect(header).toBeInTheDocument();
   });
 
-  describe('Navigation logic - renderPage method', () => {
-    it('should render Hero and About components for home page', () => {
-      // Arrange & Act
-      render(<App />);
-
-      // Assert: Home page content should be visible
-      // The main element should contain page content
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-      // Verify main has children (page content)
-      expect(main.children.length).toBeGreaterThan(0);
-    });
-
-    it('should handle default case in renderPage', () => {
-      // Arrange & Act
-      // When currentPage is an invalid value, should default to home
-      render(<App />);
-
-      // Assert: Should render home page content
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-      expect(main.children.length).toBeGreaterThan(0);
-    });
+  it('should render the footer', () => {
+    const { container } = render(<App />);
+    const footer = container.querySelector('footer');
+    expect(footer).toBeInTheDocument();
   });
 
-  describe('Component structure', () => {
-    it('should have correct root structure with min-h-screen', () => {
-      // Arrange & Act
-      const { container } = render(<App />);
+  it('should render the main content area', () => {
+    render(<App />);
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
+  });
 
-      // Assert: Root div should have expected classes
-      const rootDiv = container.firstChild as HTMLElement;
-      expect(rootDiv).toHaveClass('min-h-screen');
-    });
+  it('should display home page content on load', () => {
+    render(<App />);
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
+    expect(main.children.length).toBeGreaterThan(0);
+  });
 
-    it('should contain main content area', () => {
-      // Arrange & Act
-      render(<App />);
-
-      // Assert
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-    });
+  it('should have the correct layout structure', () => {
+    const { container } = render(<App />);
+    const rootDiv = container.firstChild as HTMLElement;
+    expect(rootDiv).toHaveClass('min-h-screen');
   });
 });
-

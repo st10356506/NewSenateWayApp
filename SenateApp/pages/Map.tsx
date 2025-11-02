@@ -227,61 +227,109 @@ export function Map() {
         setLoading(true);
         setError(null);
         
-        const apiKey = import.meta.env.VITE_ACCUWEATHER_API_KEY || '';
-        console.log('API Key found:', apiKey ? 'YES (length: ' + apiKey.length + ')' : 'NO');
-        console.log('Full env check:', import.meta.env);
+        // Check if we're in development or production
+        // In development, use direct API (with CORS error handling)
+        // In production (Netlify), use Netlify function proxy
+        const isDevelopment = import.meta.env.DEV;
+        const useProxy = !isDevelopment;
         
-        if (!apiKey) {
-          console.warn('AccuWeather API key not configured - weather data will not be available');
-          setError('Weather service not configured');
-          return;
-        }
-        
-        // First get location key for Kimberley, South Africa
-        console.log('Fetching location data for Kimberley...');
-        const locationResponse = await fetch(
-          `https://dataservice.accuweather.com/locations/v1/cities/search?apikey=${apiKey}&q=Kimberley&country=ZA`
-        );
-        
-        console.log('Location response status:', locationResponse.status);
-        console.log('Location response ok:', locationResponse.ok);
-        
-        if (!locationResponse.ok) {
-          const errorText = await locationResponse.text();
-          console.error('Location fetch failed:', errorText);
-          throw new Error('Failed to fetch location data');
-        }
-        
-        const locationData = await locationResponse.json();
-        console.log('Location data received:', locationData);
-        
-        if (locationData.length > 0) {
-          const locationKey = locationData[0].Key;
-          console.log('Location key found:', locationKey);
+        if (useProxy) {
+          // Use Netlify function to proxy the request (avoids CORS)
+          console.log('Using Netlify function proxy for weather data...');
           
-          // Get current weather with detailed information
-          console.log('Fetching weather data...');
-          const weatherResponse = await fetch(
-            `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${apiKey}&details=true`
+          // Get location data
+          const locationResponse = await fetch(
+            `/.netlify/functions/weather?endpoint=locations/v1/cities/search&q=Kimberley&country=ZA`
           );
           
-          console.log('Weather response status:', weatherResponse.status);
-          console.log('Weather response ok:', weatherResponse.ok);
-          
-          if (!weatherResponse.ok) {
-            const errorText = await weatherResponse.text();
-            console.error('Weather fetch failed:', errorText);
-            throw new Error('Failed to fetch weather data');
+          if (!locationResponse.ok) {
+            const errorData = await locationResponse.json();
+            console.error('Location fetch failed:', errorData);
+            throw new Error(errorData.error || 'Failed to fetch location data');
           }
           
-          const weatherData = await weatherResponse.json();
-          console.log('Weather data received:', weatherData);
-          setWeather(weatherData[0] as WeatherData);
-          setIconError(false); // Reset icon error when new weather data loads
-          console.log('Weather data set successfully');
+          const locationData = await locationResponse.json();
+          console.log('Location data received:', locationData);
+          
+          if (locationData.length > 0) {
+            const locationKey = locationData[0].Key;
+            console.log('Location key found:', locationKey);
+            
+            // Get current weather
+            const weatherResponse = await fetch(
+              `/.netlify/functions/weather?endpoint=currentconditions/v1/${locationKey}&details=true`
+            );
+            
+            if (!weatherResponse.ok) {
+              const errorData = await weatherResponse.json();
+              console.error('Weather fetch failed:', errorData);
+              throw new Error(errorData.error || 'Failed to fetch weather data');
+            }
+            
+            const weatherData = await weatherResponse.json();
+            console.log('Weather data received:', weatherData);
+            setWeather(weatherData[0] as WeatherData);
+            setIconError(false);
+            console.log('Weather data set successfully');
+          } else {
+            throw new Error('Location not found');
+          }
         } else {
-          console.error('No location data found for Kimberley');
-          throw new Error('Location not found');
+          // Development: Try direct API (may fail due to CORS)
+          const apiKey = import.meta.env.VITE_ACCUWEATHER_API_KEY || '';
+          
+          if (!apiKey) {
+            console.warn('AccuWeather API key not configured - weather data will not be available');
+            setError('Weather service not configured');
+            return;
+          }
+          
+          console.log('Fetching location data for Kimberley...');
+          try {
+            const locationResponse = await fetch(
+              `https://dataservice.accuweather.com/locations/v1/cities/search?apikey=${apiKey}&q=Kimberley&country=ZA`
+            );
+            
+            if (!locationResponse.ok) {
+              const errorText = await locationResponse.text();
+              console.error('Location fetch failed:', errorText);
+              throw new Error('Failed to fetch location data');
+            }
+            
+            const locationData = await locationResponse.json();
+            console.log('Location data received:', locationData);
+            
+            if (locationData.length > 0) {
+              const locationKey = locationData[0].Key;
+              console.log('Location key found:', locationKey);
+              
+              const weatherResponse = await fetch(
+                `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${apiKey}&details=true`
+              );
+              
+              if (!weatherResponse.ok) {
+                const errorText = await weatherResponse.text();
+                console.error('Weather fetch failed:', errorText);
+                throw new Error('Failed to fetch weather data');
+              }
+              
+              const weatherData = await weatherResponse.json();
+              console.log('Weather data received:', weatherData);
+              setWeather(weatherData[0] as WeatherData);
+              setIconError(false);
+              console.log('Weather data set successfully');
+            } else {
+              throw new Error('Location not found');
+            }
+          } catch (fetchError) {
+            // Handle CORS errors in development
+            if (fetchError instanceof TypeError && fetchError.message.includes('Failed to fetch')) {
+              console.warn('CORS error - weather data unavailable in development');
+              setError('Weather data unavailable (CORS restriction - will work in production)');
+            } else {
+              throw fetchError;
+            }
+          }
         }
       } catch (error) {
         console.error('Weather fetch error:', error);

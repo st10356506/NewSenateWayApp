@@ -6,89 +6,67 @@ import App from '../../App';
 vi.mock('../../firebaseConfig', () => ({
   default: { name: 'test-app' },
   database: {},
+  auth: {},
 }));
 
 vi.mock('firebase/database', () => ({
   ref: vi.fn(),
   onValue: vi.fn(),
   off: vi.fn(),
+  runTransaction: vi.fn(() => Promise.resolve({ committed: true, snapshot: { val: () => 0 } })),
+  get: vi.fn(() => Promise.resolve({ exists: () => false, val: () => null })),
+  set: vi.fn(() => Promise.resolve()),
 }));
 
-/**
- * Integration Tests: Navigation Flow
- * 
- * Tests the complete user navigation journey:
- * Header → Navigation Click → Page Render → Footer visibility
- */
-describe('Navigation Integration Tests', () => {
-  describe('Complete Navigation Flow', () => {
-    it('should navigate from home to rooms page', () => {
-      // Arrange
-      render(<App />);
-      
-      // Act: Click on Rooms navigation item
-      const roomsLink = screen.getByText(/rooms/i);
-      fireEvent.click(roomsLink);
-      
-      // Assert: Rooms page should be rendered
-      expect(screen.getByText(/rooms/i)).toBeInTheDocument();
-    });
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: vi.fn(() => vi.fn()),
+  signInWithEmailAndPassword: vi.fn(() => Promise.resolve({} as any)),
+  signOut: vi.fn(() => Promise.resolve()),
+}));
 
-    it('should navigate from rooms to gallery', () => {
-      // Arrange
-      render(<App />);
-      
-      // Act: Navigate to gallery
-      const galleryLink = screen.getByText(/gallery/i);
-      fireEvent.click(galleryLink);
-      
-      // Assert: Gallery should be visible
-      expect(screen.getByText(/gallery/i)).toBeInTheDocument();
-    });
-
-    it('should navigate to contact page and back to home', () => {
-      // Arrange
-      render(<App />);
-      
-      // Act: Navigate to contact
-      const contactLink = screen.getByText(/contact/i);
-      fireEvent.click(contactLink);
-      
-      // Assert: Contact form should be visible
-      expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
-      
-      // Act: Navigate back to home
-      const homeLink = screen.getByText(/home/i);
-      fireEvent.click(homeLink);
-      
-      // Assert: Home page content should be visible
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-    });
+describe('Navigation Tests', () => {
+  it('should navigate from home to rooms page', () => {
+    render(<App />);
+    const roomsButton = screen.getAllByRole('button', { name: /rooms/i })[0];
+    fireEvent.click(roomsButton);
+    expect(screen.getByRole('main')).toBeInTheDocument();
   });
 
-  describe('Header-Footer Integration', () => {
-    it('should maintain header and footer across all pages', () => {
-      // Arrange
-      const { container } = render(<App />);
-      
-      // Act & Assert: Check header exists
-      let header = container.querySelector('header');
-      expect(header).toBeInTheDocument();
-      
-      // Navigate to different pages
-      fireEvent.click(screen.getByText(/rooms/i));
-      header = container.querySelector('header');
-      expect(header).toBeInTheDocument();
-      
-      fireEvent.click(screen.getByText(/gallery/i));
-      header = container.querySelector('header');
-      expect(header).toBeInTheDocument();
-      
-      // Check footer exists
-      const footer = container.querySelector('footer');
-      expect(footer).toBeInTheDocument();
-    });
+  it('should navigate to gallery page', () => {
+    render(<App />);
+    const galleryButton = screen.getAllByRole('button', { name: /gallery/i })[0];
+    fireEvent.click(galleryButton);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
+  it('should navigate to contact page and back to home', () => {
+    render(<App />);
+    
+    // Go to contact
+    const contactButton = screen.getAllByRole('button', { name: /contact/i })[0];
+    fireEvent.click(contactButton);
+    expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+    
+    // Go back to home
+    const homeButton = screen.getAllByRole('button', { name: /home/i })[0];
+    fireEvent.click(homeButton);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
+  it('should keep header and footer visible on all pages', () => {
+    const { container } = render(<App />);
+    
+    // Check header exists
+    expect(container.querySelector('header')).toBeInTheDocument();
+    
+    // Navigate to different pages
+    fireEvent.click(screen.getAllByRole('button', { name: /rooms/i })[0]);
+    expect(container.querySelector('header')).toBeInTheDocument();
+    
+    fireEvent.click(screen.getAllByRole('button', { name: /gallery/i })[0]);
+    expect(container.querySelector('header')).toBeInTheDocument();
+    
+    // Check footer exists
+    expect(container.querySelector('footer')).toBeInTheDocument();
   });
 });
-
