@@ -10,22 +10,6 @@ import { ref, push } from 'firebase/database';
 import emailjs from 'emailjs-com';
 import { trackUserInteraction } from '../lib/analytics';
 
-// Google Analytics tracking
-declare global {
-  interface Window {
-    gtag: (...args: any[]) => void;
-  }
-}
-
-const trackEvent = (action: string, category: string, label?: string) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', action, {
-      event_category: category,
-      event_label: label,
-    });
-  }
-};
-
 export function Contact() {
   const [formData, setFormData] = useState({
     name: '',
@@ -58,10 +42,18 @@ export function Contact() {
       console.log('Saved to Firebase successfully!');
 
       // Send email via EmailJS
+      const emailjsServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const emailjsTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_BOOKING_RECEIVED;
+      const emailjsPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+      if (!emailjsServiceId || !emailjsTemplateId || !emailjsPublicKey) {
+        throw new Error('EmailJS configuration is missing. Please check your environment variables.');
+      }
+
       console.log('Sending email via EmailJS...');
       await emailjs.send(
-        'service_ay0xwqk', 
-        'template_7i5bzvy',
+        emailjsServiceId, 
+        emailjsTemplateId,
         {
           from_name: formData.name,
           from_email: formData.email,
@@ -72,11 +64,10 @@ export function Contact() {
           guests: formData.guests,
           message: formData.message,
         },
-        '1EGw5SZnqNNFre2CR' 
+        emailjsPublicKey
       );
 
       console.log('Email sent successfully via EmailJS');
-      trackEvent('booking_request_submitted', 'engagement', 'contact_form');
       trackUserInteraction('booking');
       alert('Thank you for your booking request! We will contact you shortly.');
 

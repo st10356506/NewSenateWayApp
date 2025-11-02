@@ -5,22 +5,6 @@ import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 
-// Google Analytics tracking functions
-declare global {
-  interface Window {
-    gtag: (...args: any[]) => void;
-  }
-}
-
-const trackEvent = (action: string, category: string, label?: string) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', action, {
-      event_category: category,
-      event_label: label,
-    });
-  }
-};
-
 interface Message {
   id: number;
   text: string;
@@ -154,9 +138,6 @@ export function Chatbot() {
     setIsTyping(true);
 
     try {
-      // Track chatbot message sent
-      trackEvent('chatbot_message_sent', 'engagement', 'ai_chat');
-      
       const botResponseText = await getBotResponse(inputValue);
       const botResponse: Message = {
         id: messages.length + 2,

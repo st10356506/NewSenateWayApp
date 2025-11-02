@@ -6,10 +6,18 @@ import { ref, onValue, off, update, remove } from 'firebase/database';
 import { Calendar, User, Mail, Phone, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react';
 import emailjs from 'emailjs-com';
 
-// EmailJS Configuration
-const EMAILJS_SERVICE_ID = 'service_ay0xwqk';
-const EMAILJS_PUBLIC_KEY = '1EGw5SZnqNNFre2CR';
-const EMAILJS_TEMPLATE_CONFIRMED = 'template_ql8yhse';
+// EmailJS Configuration - Load from environment variables
+const getEmailJSConfig = () => {
+  const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+  const templateConfirmed = import.meta.env.VITE_EMAILJS_TEMPLATE_BOOKING_CONFIRMED;
+
+  if (!serviceId || !publicKey || !templateConfirmed) {
+    throw new Error('EmailJS configuration is missing. Please check your environment variables.');
+  }
+
+  return { serviceId, publicKey, templateConfirmed };
+};
 
 interface Booking {
   id: string;
@@ -75,10 +83,13 @@ export function Bookings() {
         day: 'numeric'
       });
 
+      // Get EmailJS configuration from environment variables
+      const { serviceId, publicKey, templateConfirmed } = getEmailJSConfig();
+
       // Send confirmation email using the template - all formatting is handled by the EmailJS template
       await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_CONFIRMED,
+        serviceId,
+        templateConfirmed,
         {
           from_name: 'SenateWay Guesthouse',
           from_email: 'vanessa141169@yahoo.com',
@@ -91,7 +102,7 @@ export function Bookings() {
           guests: booking.guests,
           message: booking.message || '', // Special requests/message
         },
-        EMAILJS_PUBLIC_KEY
+        publicKey
       );
 
       console.log(`Confirmation email sent to ${booking.email}`);

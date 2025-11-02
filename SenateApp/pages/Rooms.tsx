@@ -8,22 +8,6 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { database } from '../firebaseConfig';
 import { ref, push } from 'firebase/database';
 
-// Google Analytics tracking functions
-declare global {
-  interface Window {
-    gtag: (...args: any[]) => void;
-  }
-}
-
-const trackEvent = (action: string, category: string, label?: string) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', action, {
-      event_category: category,
-      event_label: label,
-    });
-  }
-};
-
 interface Room {
   id: number;
   name: string;
@@ -263,7 +247,6 @@ export function Rooms() {
                 <Button 
                   className="w-full"
                   onClick={async () => {
-                    trackEvent('book_now_clicked', 'engagement', room.name);
                     // Save to Firebase
                     const bookingData = {
                       roomName: room.name,
